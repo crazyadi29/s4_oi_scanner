@@ -43,7 +43,6 @@ def market_open() -> bool:
 # ── Scanner ────────────────────────────────────
 class Scanner:
     def __init__(self, send_fn):
-        """send_fn: async callable(text: str, stock: dict)"""
         self.send     = send_fn
         self.nse      = NSEClient()
         self._running = False
@@ -75,11 +74,9 @@ class Scanner:
             try:
                 if market_open():
                     await self._scan_cycle()
-                    # scan fast — only a short sleep between cycles
                     await asyncio.sleep(config.SCAN_INTERVAL_SEC)
                 else:
-                    # market closed — check every 20s for open
-                    log.info("Market closed — waiting for 9:15 AM …")
+                    log.info("Market closed — waiting ...")
                     await asyncio.sleep(20)
             except asyncio.CancelledError:
                 break
@@ -94,16 +91,16 @@ class Scanner:
         )
         movers = movers[:config.MAX_STOCKS_PER_RUN]
 
-        if not movers:
-            return
+        log.info(f"Total movers >{config.MIN_MOVE_PCT}%: {len(movers)}")
 
         new_movers = [s for s in movers if not _on_cooldown(s["symbol"])]
+
+        log.info(f"After cooldown filter: {len(new_movers)} | Skipped: {len(movers) - len(new_movers)}")
+
         if not new_movers:
+            log.info("All movers on cooldown — no alerts this cycle")
             return
 
-        log.info(f"New movers: {len(new_movers)} — firing alerts …")
-
-        # fire all new movers concurrently for max speed
         tasks = [self._process_stock(stock) for stock in new_movers]
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -113,21 +110,22 @@ class Scanner:
         try:
             chain = await asyncio.to_thread(self.nse.get_option_chain, sym)
             if not chain:
+                log.warning(f"[{sym}] option chain = None (NSE blocked or session expired)")
                 return
 
             result = await asyncio.to_thread(
                 self.nse.find_top_otm, chain, stock["ltp"], config.TOP_N_OTM
             )
             if not result:
+                log.warning(f"[{sym}] find_top_otm returned None")
                 return
 
             if not result["ce_top"] and not result["pe_top"]:
+                log.warning(f"[{sym}] no CE/PE data found in chain")
                 return
 
             msg = build_alert(stock, result)
             console_print(stock, result)
-
-            # send to Telegram immediately
             await self.send(msg, stock)
             _set_cooldown(sym)
             log.info(f"[{sym}] ✅ Signal sent | cooldown {config.COOLDOWN_MINUTES}m")

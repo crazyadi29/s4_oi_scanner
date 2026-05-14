@@ -5,6 +5,8 @@
 
 import asyncio
 import logging
+import json
+import os
 from datetime import datetime
 
 from telegram import Update
@@ -29,18 +31,36 @@ _scanner: Scanner | None = None
 _signal_count: int = 0
 _session_signals: list[dict] = []
 
+# ── subscribers ────────────────────────────────
+SUBSCRIBERS_FILE = "subscribers.json"
+
+def _load_subscribers() -> set[int]:
+    if os.path.exists(SUBSCRIBERS_FILE):
+        with open(SUBSCRIBERS_FILE, "r") as f:
+            return set(json.load(f))
+    return set()
+
+def _save_subscribers():
+    with open(SUBSCRIBERS_FILE, "w") as f:
+        json.dump(list(_subscribers), f)
+
+_subscribers: set[int] = _load_subscribers()
+
 
 # ── send helper ────────────────────────────────
 async def _telegram_send(app: Application, text: str):
-    try:
-        await app.bot.send_message(
-            chat_id=config.TELEGRAM_CHAT_ID,
-            text=text,
-            parse_mode="Markdown",
-            disable_web_page_preview=True,
-        )
-    except Exception as e:
-        log.error(f"Telegram send error: {e}")
+    all_chats = _subscribers | {int(config.TELEGRAM_CHAT_ID)}
+    for chat_id in all_chats:
+        try:
+            await app.bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                parse_mode="Markdown",
+                disable_web_page_preview=True,
+            )
+            await asyncio.sleep(0.05)
+        except Exception as e:
+            log.error(f"Telegram send error to {chat_id}: {e}")
 
 
 # ── last session summary ───────────────────────
@@ -70,9 +90,25 @@ def _signal_count_inc():
     _signal_count += 1
 
 
+# ── /start ─────────────────────────────────────
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    _subscribers.add(chat_id)
+    _save_subscribers()
+    await update.message.reply_text(
+        "✅ *You are now subscribed to OI Scanner alerts!*\n\n"
+        "Send /startscan to begin scanning.",
+        parse_mode="Markdown"
+    )
+
+
 # ── /startscan ─────────────────────────────────
 async def cmd_startscan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     global _scanner, _signal_count, _session_signals
+
+    # Auto-subscribe anyone who sends /startscan
+    _subscribers.add(update.effective_chat.id)
+    _save_subscribers()
 
     async def send_fn(text: str, stock: dict):
         _session_signals.append({
@@ -105,7 +141,7 @@ async def cmd_startscan(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     if _scanner and _scanner.is_running():
         await update.message.reply_text(
-            "⚡ Scanner is *already running!*",
+            "⚡ Scanner is *already running!* You will now receive all signals.",
             parse_mode="Markdown"
         )
         return
@@ -161,6 +197,7 @@ async def cmd_status(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         f"Interval: `{config.SCAN_INTERVAL_SEC}s`\n"
         f"Cooldown: `{config.COOLDOWN_MINUTES} min`\n"
         f"Signals : `{_signal_count}` this session\n"
+        f"Subscribers: `{len(_subscribers) + 1}`\n"
         f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
         parse_mode="Markdown"
     )
@@ -233,12 +270,12 @@ async def main():
         .build()
     )
 
+    app.add_handler(CommandHandler("start",     cmd_start))
     app.add_handler(CommandHandler("startscan", cmd_startscan))
     app.add_handler(CommandHandler("stopscan",  cmd_stopscan))
     app.add_handler(CommandHandler("status",    cmd_status))
     app.add_handler(CommandHandler("lastdata",  cmd_lastdata))
     app.add_handler(CommandHandler("help",      cmd_help))
-    app.add_handler(CommandHandler("start",     cmd_help))
 
     log.info("Polling started — waiting for commands …")
     async with app:

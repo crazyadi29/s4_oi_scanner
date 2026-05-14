@@ -14,6 +14,19 @@ TOKEN_FILE = os.path.join(os.path.dirname(__file__), "token.txt")
 
 
 def _load_token() -> tuple[str, str]:
+    # Prefer FYERS_TOKEN env var (required on Railway where files don't persist)
+    env_token = os.environ.get("FYERS_TOKEN", "").strip()
+    if env_token:
+        try:
+            client_id, access_token = env_token.split(":", 1)
+            return client_id, access_token
+        except ValueError:
+            raise RuntimeError(
+                "FYERS_TOKEN env var must be in CLIENT_ID:ACCESS_TOKEN format "
+                "(e.g. Q7DD93F3RO-100:your_access_token_here)"
+            )
+
+    # Fallback: read from token.txt for local development
     try:
         with open(TOKEN_FILE) as f:
             full = f.read().strip()
@@ -21,7 +34,10 @@ def _load_token() -> tuple[str, str]:
         access_token = full.split(":", 1)[1]
         return client_id, access_token
     except Exception:
-        raise RuntimeError("token.txt not found — run: python3 login.py")
+        raise RuntimeError(
+            "No Fyers token found — set the FYERS_TOKEN environment variable "
+            "or run: python3 login.py to generate token.txt"
+        )
 
 
 class NSEClient:

@@ -6,7 +6,12 @@ import asyncio
 import logging
 from datetime import datetime, timedelta, time as dtime
 
+import pytz
+
 import config
+
+IST = pytz.timezone('Asia/Kolkata')
+
 from nse_client import NSEClient
 from formatter  import build_alert, console_print
 
@@ -34,7 +39,7 @@ def _cooldown_remaining(sym: str) -> str:
 
 # ── market hours ───────────────────────────────
 def market_open() -> bool:
-    now   = datetime.now().time()
+    now   = datetime.now(IST).time()
     start = dtime(config.MARKET_OPEN_H,  config.MARKET_OPEN_M)
     end   = dtime(config.MARKET_CLOSE_H, config.MARKET_CLOSE_M)
     return start <= now <= end

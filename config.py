@@ -4,8 +4,19 @@
 import os
 
 # ── Telegram ───────────────────────────────────
-TELEGRAM_BOT_TOKEN = os.getenv("8615277123:AAH8lbS7p9E3Ef1vZmR02BsVZsa0-5BJGmk", "8615277123:AAH8lbS7p9E3Ef1vZmR02BsVZsa0-5BJGmk")
-TELEGRAM_CHAT_ID   = os.getenv("8462499598",   "8462499598")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID   = os.getenv("TELEGRAM_CHAT_ID")
+
+if not TELEGRAM_BOT_TOKEN:
+    raise EnvironmentError(
+        "Missing required environment variable: TELEGRAM_BOT_TOKEN. "
+        "Set it in your Railway project settings (or .env locally)."
+    )
+if not TELEGRAM_CHAT_ID:
+    raise EnvironmentError(
+        "Missing required environment variable: TELEGRAM_CHAT_ID. "
+        "Set it in your Railway project settings (or .env locally)."
+    )
 
 # ── Fyers ──────────────────────────────────────
 FYERS_CLIENT_ID    = "Q7DD93F3RO-100"

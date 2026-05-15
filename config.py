@@ -19,7 +19,7 @@ if not TELEGRAM_CHAT_ID:
     )
 
 # ── Fyers ──────────────────────────────────────
-FYERS_CLIENT_ID    = "Q7DD93F3RO-100"
+FYERS_CLIENT_ID    = "Q7DD93F3RO"
 FYERS_SECRET_KEY   = "ESMJRJMH6K"
 FYERS_REDIRECT_URI = "https://trade.fyers.in/api-login/redirect-uri/index.html"
 

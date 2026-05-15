@@ -14,19 +14,38 @@ TOKEN_FILE = os.path.join(os.path.dirname(__file__), "token.txt")
 
 
 def _load_token() -> tuple[str, str]:
-    # Prefer FYERS_TOKEN env var (required on Railway where files don't persist)
-    env_token = os.environ.get("FYERS_TOKEN", "").strip()
-    if env_token:
-        try:
-            client_id, access_token = env_token.split(":", 1)
-            return client_id, access_token
-        except ValueError:
-            raise RuntimeError(
-                "FYERS_TOKEN env var must be in CLIENT_ID:ACCESS_TOKEN format "
-                "(e.g. Q7DD93F3RO-100:your_access_token_here)"
-            )
+    """
+    Returns (client_id, access_token).
 
-    # Fallback: read from token.txt for local development
+    Priority:
+      1. FYERS_ACCESS_TOKEN env var (for Railway deployment)
+         Accepts both formats:
+           - "CLIENT_ID:ACCESS_TOKEN" (full)
+           - "ACCESS_TOKEN" (just the token)
+      2. token.txt file (for local dev)
+    """
+    env_token = os.getenv("FYERS_ACCESS_TOKEN", "").strip()
+    if env_token:
+        if ":" in env_token:
+            client_id, access_token = env_token.split(":", 1)
+            return client_id.strip(), access_token.strip()
+        # Just the access token — use FYERS_CLIENT_ID env var or config
+        client_id = os.getenv("FYERS_CLIENT_ID", "").strip()
+        if not client_id:
+            try:
+                import config
+                client_id = getattr(config, "FYERS_CLIENT_ID", "")
+            except Exception:
+                pass
+        if not client_id:
+            raise RuntimeError(
+                "FYERS_ACCESS_TOKEN missing CLIENT_ID prefix.\n"
+                "  Either: set FYERS_CLIENT_ID env var too, OR\n"
+                "  use full format: FYERS_ACCESS_TOKEN=CLIENT_ID:TOKEN"
+            )
+        return client_id, env_token
+
+    # Fallback: token.txt file
     try:
         with open(TOKEN_FILE) as f:
             full = f.read().strip()
@@ -35,8 +54,9 @@ def _load_token() -> tuple[str, str]:
         return client_id, access_token
     except Exception:
         raise RuntimeError(
-            "No Fyers token found — set the FYERS_TOKEN environment variable "
-            "or run: python3 login.py to generate token.txt"
+            "No Fyers token found.\n"
+            "  Option 1 (Railway): set FYERS_ACCESS_TOKEN env variable\n"
+            "  Option 2 (local):   run `python3 login.py` to create token.txt"
         )
 
 

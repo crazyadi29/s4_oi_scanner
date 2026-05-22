@@ -24,7 +24,7 @@ FYERS_SECRET_KEY   = "ESMJRJMH6K"
 FYERS_REDIRECT_URI = "https://trade.fyers.in/api-login/redirect-uri/index.html"
 
 # ── Strategy settings ──────────────────────────
-MIN_MOVE_PCT       = 2.0
+MIN_MOVE_PCT       = 1.5
 SCAN_INTERVAL_SEC  = 8
 MAX_STOCKS_PER_RUN = 100
 COOLDOWN_MINUTES   = 30

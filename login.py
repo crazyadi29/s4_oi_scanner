@@ -17,7 +17,7 @@ RAILWAY_PROJECT_ID = os.environ["RAILWAY_PROJECT_ID"]
 RAILWAY_SERVICE_ID = os.environ["RAILWAY_SERVICE_ID"]
 
 def auto_login():
-    s = requests.Session(
+    s = requests.Session()
 
     # Step 1: Send login ID
     r1 = s.post("https://api-t2.fyers.in/vagator/v2/send_login_otp_v2",

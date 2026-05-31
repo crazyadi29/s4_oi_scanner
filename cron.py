@@ -1,6 +1,6 @@
 import schedule
 import time
-import auto_token
+import login
 
 # Every day at 8:30 AM IST = 3:00 AM UTC
 schedule.every().day.at("03:00").do(auto_token.auto_login)

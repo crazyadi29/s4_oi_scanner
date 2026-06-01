@@ -21,10 +21,10 @@ def auto_login():
 
     # Step 1: Send login ID
     r1 = s.post("https://api-t2.fyers.in/vagator/v2/send_login_otp_v2",
-        json={"fy_id": CLIENT_ID, "app_id": "2"})
-    request_key = r1.json()["request_key"]
-    print("✅ Step 1 done - login OTP sent")
-
+    json={"fy_id": CLIENT_ID, "app_id": "2"})
+print(f"Step 1 response: {r1.json()}")
+request_key = r1.json()["request_key"]
+print("✅ Step 1 done - login OTP sent")
     # Step 2: Verify TOTP (auto-generated!)
     totp = pyotp.TOTP(TOTP_KEY).now()
     r2 = s.post("https://api-t2.fyers.in/vagator/v2/verify_otp",

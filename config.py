@@ -19,9 +19,10 @@ if not TELEGRAM_CHAT_ID:
     )
 
 # ── Fyers ──────────────────────────────────────
-FYERS_CLIENT_ID    = "Q7DD93F3RO-100"
-FYERS_SECRET_KEY   = "ESMJRJMH6K"
-FYERS_REDIRECT_URI = "https://trade.fyers.in/api-login/redirect-uri/index.html"
+FYERS_CLIENT_ID    = os.getenv("FYERS_APP_ID", "Q7DD93F3RO-100")
+FYERS_SECRET_KEY   = os.getenv("FYERS_SECRET_KEY", "ESMJRJMH6K")
+FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI", "https://trade.fyers.in/api-login/redirect-uri/index.html")
+FYERS_ACCESS_TOKEN = os.getenv("FYERS_ACCESS_TOKEN", "")
 
 # ── Strategy settings ──────────────────────────
 MIN_MOVE_PCT       = 1.5

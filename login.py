@@ -16,25 +16,31 @@ RAILWAY_PROJECT_ID = os.environ["RAILWAY_PROJECT_ID"]
 RAILWAY_SERVICE_ID = os.environ["RAILWAY_SERVICE_ID"]
 RAILWAY_ENV_ID = os.environ["RAILWAY_ENVIRONMENT_ID"]
 
+BASE_URL = "https://api-t2.fyers.in/vagator/v2"
+BASE_URL_2 = "https://api-t1.fyers.in/api/v3"
+URL_SEND_LOGIN_OTP = BASE_URL + "/send_login_otp"
+URL_VERIFY_TOTP = BASE_URL + "/verify_otp"
+URL_VERIFY_PIN = BASE_URL + "/verify_pin"
+URL_TOKEN = BASE_URL_2 + "/token"
+
 def auto_login():
     s = requests.Session()
-    r1 = s.post("https://api-t2.fyers.in/vagator/v2/send_login_otp_v2", json={"fy_id": CLIENT_ID, "app_id": "2"}, headers={"User-Agent": "Mozilla/5.0", "Content-Type": "application/json"})
-    print(f"Step 1 status: {r1.status_code}")
+    r1 = s.post(URL_SEND_LOGIN_OTP, json={"fy_id": CLIENT_ID, "app_id": "2"})
     print(f"Step 1 response: {r1.json()}")
-    print(f"CLIENT_ID being used: {CLIENT_ID}")
     request_key = r1.json()["request_key"]
     print("Step 1 done")
     totp = pyotp.TOTP(TOTP_KEY).now()
-    r2 = s.post("https://api-t2.fyers.in/vagator/v2/verify_otp", json={"request_key": request_key, "otp": totp})
+    r2 = s.post(URL_VERIFY_TOTP, json={"request_key": request_key, "otp": totp})
     print(f"Step 2 response: {r2.json()}")
     request_key = r2.json()["request_key"]
     print("Step 2 done")
     pin_b64 = base64.b64encode(PIN.encode()).decode()
-    r3 = s.post("https://api-t2.fyers.in/vagator/v2/verify_pin_v2", json={"request_key": request_key, "identity_type": "pin", "identifier": pin_b64})
+    r3 = s.post(URL_VERIFY_PIN, json={"request_key": request_key, "identity_type": "pin", "identifier": pin_b64})
     print(f"Step 3 response: {r3.json()}")
+    access_token = r3.json()["data"]["access_token"]
     print("Step 3 done")
     app_id_short = APP_ID.split("-")[0]
-    r4 = s.post("https://api.fyers.in/api/v2/token", json={"fyers_id": CLIENT_ID, "app_id": app_id_short, "redirect_uri": REDIRECT_URI, "appType": "100", "code_challenge": "", "state": "state", "scope": "", "nonce": "", "response_type": "code", "create_cookie": True})
+    r4 = s.post(URL_TOKEN, json={"fyers_id": CLIENT_ID, "app_id": app_id_short, "redirect_uri": REDIRECT_URI, "appType": "100", "code_challenge": "", "state": "state", "scope": "", "nonce": "", "response_type": "code", "create_cookie": True}, headers={"Authorization": f"Bearer {access_token}"})
     print(f"Step 4 response: {r4.json()}")
     auth_code = r4.json()["Url"].split("auth_code=")[1].split("&")[0]
     print("Step 4 done")

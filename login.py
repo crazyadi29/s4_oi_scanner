@@ -5,7 +5,6 @@ import hashlib
 import os
 from fyers_apiv3 import fyersModel
 
-# All from Railway environment variables
 CLIENT_ID    = os.environ["FYERS_CLIENT_ID"]
 SECRET_KEY   = os.environ["FYERS_SECRET_KEY"]
 REDIRECT_URI = os.environ["FYERS_REDIRECT_URI"]
@@ -15,20 +14,23 @@ TOTP_KEY     = os.environ["FYERS_TOTP_KEY"]
 RAILWAY_TOKEN      = os.environ["RAILWAY_API_TOKEN"]
 RAILWAY_PROJECT_ID = os.environ["RAILWAY_PROJECT_ID"]
 RAILWAY_SERVICE_ID = os.environ["RAILWAY_SERVICE_ID"]
+RAILWAY_ENV_ID     = os.environ["RAILWAY_ENVIRONMENT_ID"]
 
 def auto_login():
     s = requests.Session()
 
     # Step 1: Send login ID
     r1 = s.post("https://api-t2.fyers.in/vagator/v2/send_login_otp_v2",
-    json={"fy_id": CLIENT_ID, "app_id": "2"})
-print(f"Step 1 response: {r1.json()}")
-request_key = r1.json()["request_key"]
-print("✅ Step 1 done - login OTP sent")
-    # Step 2: Verify TOTP (auto-generated!)
+        json={"fy_id": CLIENT_ID, "app_id": "2"})
+    print(f"Step 1 response: {r1.json()}")
+    request_key = r1.json()["request_key"]
+    print("✅ Step 1 done - login OTP sent")
+
+    # Step 2: Verify TOTP
     totp = pyotp.TOTP(TOTP_KEY).now()
     r2 = s.post("https://api-t2.fyers.in/vagator/v2/verify_otp",
         json={"request_key": request_key, "otp": totp})
+    print(f"Step 2 response: {r2.json()}")
     request_key = r2.json()["request_key"]
     print("✅ Step 2 done - TOTP verified")
 
@@ -38,6 +40,7 @@ print("✅ Step 1 done - login OTP sent")
         json={"request_key": request_key,
               "identity_type": "pin",
               "identifier": pin_b64})
+    print(f"Step 3 response: {r3.json()}")
     print("✅ Step 3 done - PIN verified")
 
     # Step 4: Get auth code
@@ -53,6 +56,7 @@ print("✅ Step 1 done - login OTP sent")
               "nonce": "",
               "response_type": "code",
               "create_cookie": True})
+    print(f"Step 4 response: {r4.json()}")
     auth_code = r4.json()["Url"].split("auth_code=")[1].split("&")[0]
     print("✅ Step 4 done - auth code received")
 
@@ -71,14 +75,11 @@ print("✅ Step 1 done - login OTP sent")
     if resp.get("code") == 200:
         token = f"{CLIENT_ID}:{resp['access_token']}"
         print(f"✅ Token generated!")
-
-        # Step 6: Update Railway env variable automatically
         update_railway_variable(token)
     else:
         print(f"❌ Failed: {resp}")
 
 def update_railway_variable(token):
-    # Railway GraphQL API to update env variable
     query = """
     mutation upsertVariables($input: VariableCollectionUpsertInput!) {
       variableCollectionUpsert(input: $input)
@@ -88,7 +89,7 @@ def update_railway_variable(token):
         "input": {
             "projectId": RAILWAY_PROJECT_ID,
             "serviceId": RAILWAY_SERVICE_ID,
-            "environmentId": os.environ["RAILWAY_ENVIRONMENT_ID"],
+            "environmentId": RAILWAY_ENV_ID,
             "variables": {
                 "FYERS_ACCESS_TOKEN": token
             }

@@ -18,7 +18,7 @@ RAILWAY_ENV_ID = os.environ["RAILWAY_ENVIRONMENT_ID"]
 
 def auto_login():
     s = requests.Session()
-    r1 = s.post("https://api-t2.fyers.in/vagator/v2/send_login_otp_v2", json={"fy_id": CLIENT_ID, "app_id": "2"})
+    r1 = s.post("https://api-t2.fyers.in/vagator/v2/send_login_otp_v2", json={"fy_id": CLIENT_ID, "app_id": "2"}, headers={"User-Agent": "Mozilla/5.0", "Content-Type": "application/json"})
     print(f"Step 1 status: {r1.status_code}")
     print(f"Step 1 response: {r1.json()}")
     print(f"CLIENT_ID being used: {CLIENT_ID}")

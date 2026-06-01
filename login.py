@@ -34,8 +34,7 @@ def auto_login():
     print(f"Step 2 response: {r2.json()}")
     request_key = r2.json()["request_key"]
     print("Step 2 done")
-    pin_b64 = base64.b64encode(PIN.encode()).decode()
-    r3 = s.post(URL_VERIFY_PIN, json={"request_key": request_key, "identity_type": "pin", "identifier": pin_b64})
+    r3 = s.post(URL_VERIFY_PIN, json={"request_key": request_key, "identity_type": "pin", "identifier": PIN})
     print(f"Step 3 response: {r3.json()}")
     access_token = r3.json()["data"]["access_token"]
     print("Step 3 done")

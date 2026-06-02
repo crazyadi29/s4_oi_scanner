@@ -40,9 +40,8 @@ def auto_login():
     session = fyersModel.SessionModel(client_id=APP_ID, redirect_uri=REDIRECT_URI, response_type="code", state="state", secret_key=SECRET_KEY, grant_type="authorization_code")
     session.set_token(auth_code)
     resp = session.generate_token()
-print(f"Token resp: {resp}")
-token = f"{APP_ID}:{resp['access_token']}"
-    print(f"Saving token: {token[:30]}...")
+    print(f"Token resp: {resp}")
+    token = f"{APP_ID}:{resp['access_token']}"
     update_railway_variable(token)
 
 def update_railway_variable(token):

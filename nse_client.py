@@ -25,7 +25,6 @@ def _load_token() -> tuple[str, str]:
       2. token.txt file (for local dev)
     """
    env_token = os.getenv("FYERS_ACCESS_TOKEN", "").strip()
-print(f"Token being used: {env_token[:30]}...")
     if env_token:
         if ":" in env_token:
             client_id, access_token = env_token.split(":", 1)

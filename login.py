@@ -11,7 +11,7 @@ PIN = os.environ["FYERS_PIN"]
 TOTP_KEY = os.environ["FYERS_TOTP_KEY"]
 RAILWAY_TOKEN = os.environ["RAILWAY_API_TOKEN"]
 RAILWAY_PROJECT_ID = os.environ["RAILWAY_PROJECT_ID"]
-RAILWAY_SERVICE_ID = os.environ["RAILWAY_SERVICE_ID"]
+RAILWAY_SERVICE_ID = os.environ["MY_MAIN_SERVICE_ID"]
 RAILWAY_ENV_ID = os.environ["RAILWAY_ENVIRONMENT_ID"]
 
 BASE_URL = "https://api-t2.fyers.in/vagator/v2"

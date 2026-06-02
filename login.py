@@ -47,9 +47,9 @@ def auto_login():
     session.set_token(auth_code)
     resp = session.generate_token()
     if resp.get("code") == 200:
-        token = f"{APP_ID}:{resp['access_token']}"
-        print("Token generated!")
-        update_railway_variable(token)
+       token = f"{APP_ID}:{resp['access_token']}"
+print(f"Token generated! Saving: {token[:30]}...")
+update_railway_variable(token)
     else:
         print(f"Failed: {resp}")
 

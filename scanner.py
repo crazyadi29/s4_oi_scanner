@@ -129,6 +129,12 @@ class Scanner:
                 log.warning(f"[{sym}] no CE/PE data found in chain")
                 return
 
+            ce_oi = sum(o["oi"] for o in result["ce_top"])
+            pe_oi = sum(o["oi"] for o in result["pe_top"])
+            if ce_oi <= pe_oi:
+                log.info(f"[{sym}] skipped — CE OI ({ce_oi:,}) <= PE OI ({pe_oi:,})")
+                return
+
             msg = build_alert(stock, result)
             console_print(stock, result)
             await self.send(msg, stock)

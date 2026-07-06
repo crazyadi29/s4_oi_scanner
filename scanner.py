@@ -48,7 +48,7 @@ def market_open() -> bool:
 # ── OI change cache ────────────────────────────
 # stores: { symbol: [(timestamp, ce_oi_chg, pe_oi_chg), ...] }
 # keeps last 20 mins of snapshots per symbol, pruned every cycle
-OI_CHG_WINDOW_MINS = 15
+OI_CHG_WINDOW_MINS = 1
 _oi_chg_history: dict[str, list[tuple[datetime, float, float]]] = {}
 
 def _record_oi_chg(sym: str, ce_oi_chg: float, pe_oi_chg: float):
@@ -57,7 +57,7 @@ def _record_oi_chg(sym: str, ce_oi_chg: float, pe_oi_chg: float):
         _oi_chg_history[sym] = []
     _oi_chg_history[sym].append((now, ce_oi_chg, pe_oi_chg))
     # prune older than 20 mins
-    cutoff = now - timedelta(minutes=20)
+    cutoff = now - timedelta(minutes=5)
     _oi_chg_history[sym] = [e for e in _oi_chg_history[sym] if e[0] >= cutoff]
 
 
@@ -78,7 +78,7 @@ def _oi_chg_increased(sym: str, current_ce_chg: float, current_pe_chg: float, si
     # find the oldest snapshot within the 15-min window
     past_snaps = [e for e in history if e[0] <= cutoff]
     if not past_snaps:
-        return True  # less than 15 mins of data, pass through
+        return True  # less than 1 min of data, pass through
 
     # closest snapshot to exactly 15 mins ago
     ref = min(past_snaps, key=lambda e: abs((e[0] - cutoff).total_seconds()))

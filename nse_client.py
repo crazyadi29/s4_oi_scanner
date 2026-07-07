@@ -84,7 +84,14 @@ class NSEClient:
                     if prev and prev > 0:
                         pct = round((ltp - prev) / prev * 100, 2)
                         if abs(pct) >= min_pct and ltp > 0:
-                            movers.append({"symbol": sym, "ltp": ltp, "pct": pct, "direction": "LONG" if pct > 0 else "SHORT"})
+                            movers.append({
+                                "symbol":      sym,
+                                "ltp":         ltp,
+                                "pct":         pct,
+                                "direction":   "LONG" if pct > 0 else "SHORT",
+                                "volume":      v.get("vol_traded_today", v.get("volume", 0)),
+                                "prev_volume": v.get("prev_volume", v.get("pdv", 0)),
+                            })
             except Exception as e:
                 log.error(f"Quotes batch error: {e}")
             time.sleep(0.3)

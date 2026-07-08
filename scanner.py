@@ -264,14 +264,17 @@ class Scanner:
             if not match:
                 return
 
-            curr_prem      = match["premium"]
-            entry_prem     = sig["entry_premium"]
-            lot_size       = sig["lot_size"]
-            pnl            = (curr_prem - entry_prem) * lot_size
-            prem_pct       = (curr_prem - entry_prem) / entry_prem * 100 if entry_prem else 0
+            curr_prem  = match["premium"]
+            entry_prem = sig["entry_premium"]
+            last_prem  = sig["last_premium"]
+            lot_size   = sig["lot_size"]
+            pnl        = (curr_prem - entry_prem) * lot_size
 
-            # only send update if premium moved meaningfully (>2%)
-            if abs(prem_pct) < 2:
+            # only alert when curr premium >= 5% above last sent premium
+            if last_prem <= 0:
+                return
+            pct_above_last = (curr_prem - last_prem) / last_prem * 100
+            if pct_above_last < 5:
                 return
 
             sig["last_premium"] = curr_prem

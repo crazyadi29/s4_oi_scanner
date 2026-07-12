@@ -163,10 +163,6 @@ class Scanner:
                 await self._send_tracking(sym, stock)
                 return
 
-            # ── cooldown check ───────────────────────────────
-            if _on_cooldown(sym):
-                return
-
             # ── fetch chain ──────────────────────────────────
             chain = await asyncio.to_thread(self.nse.get_option_chain, sym)
             if not chain:
@@ -197,6 +193,18 @@ class Scanner:
             if option_side == "PUT" and pe_oi <= ce_oi:
                 log.info(f"[{sym}] {signal_type} skipped — PE OI ({pe_oi:,}) <= CE OI ({ce_oi:,})")
                 return
+
+            # ── OI change >= 15% of total OI (mandatory) ─────
+            if option_side == "CALL":
+                oi_chg_pct = (ce_oi_chg / ce_oi * 100) if ce_oi > 0 else 0
+                if oi_chg_pct < 15:
+                    log.info(f"[{sym}] {signal_type} skipped — CE OI chg {oi_chg_pct:.1f}% < 15%")
+                    return
+            else:
+                oi_chg_pct = (pe_oi_chg / pe_oi * 100) if pe_oi > 0 else 0
+                if oi_chg_pct < 15:
+                    log.info(f"[{sym}] {signal_type} skipped — PE OI chg {oi_chg_pct:.1f}% < 15%")
+                    return
 
             # ── institutional conviction ─────────────────────
             institutional = _is_institutional(
@@ -239,7 +247,6 @@ class Scanner:
             msg = build_alert(stock, result)
             console_print(stock, result)
             await self.send(msg, stock)
-            _set_cooldown(sym)
             log.info(f"[{sym}] ✅ {signal_type} ({option_side}) fired | institutional={institutional}")
 
         except Exception as e:
@@ -274,7 +281,7 @@ class Scanner:
             if last_prem <= 0:
                 return
             pct_above_last = (curr_prem - last_prem) / last_prem * 100
-            if pct_above_last < 5:
+            if pct_above_last < 10:
                 return
 
             sig["last_premium"] = curr_prem

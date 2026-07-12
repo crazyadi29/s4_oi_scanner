@@ -153,8 +153,8 @@ class NSEClient:
             if not all_strikes:
                 return None
             atm_strike = min(all_strikes, key=lambda s: abs(s - ltp))
-            ce_otm = [o for o in ce_rows if o.get("strike_price", 0) > atm_strike]
-            pe_otm = [o for o in pe_rows if o.get("strike_price", 0) < atm_strike]
+            ce_otm = [o for o in ce_rows if o.get("strike_price", 0) > atm_strike and o.get("oi", 0) >= 1000]
+            pe_otm = [o for o in pe_rows if o.get("strike_price", 0) < atm_strike and o.get("oi", 0) >= 1000]
             ce_top = sorted(ce_otm, key=lambda x: x.get("oi", 0), reverse=True)[:top_n]
             pe_top = sorted(pe_otm, key=lambda x: x.get("oi", 0), reverse=True)[:top_n]
             return {"expiry": expiry, "atm_strike": atm_strike, "ce_top": [_snap_row(o, expiry) for o in ce_top], "pe_top": [_snap_row(o, expiry) for o in pe_top]}

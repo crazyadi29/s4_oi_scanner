@@ -34,14 +34,27 @@ def _load_token() -> tuple[str, str]:
 
 class NSEClient:
     def __init__(self):
+        self._init_fyers()
+
+    def _init_fyers(self):
         client_id, access_token = _load_token()
         self.fyers = fyersModel.FyersModel(client_id=client_id, token=access_token, log_path="")
+        self._token = access_token
         log.info("Fyers client ready ✅")
+
+    def _refresh_if_needed(self):
+        """Reload token from env var — picks up new token if cron refreshed it."""
+        current = os.getenv("FYERS_ACCESS_TOKEN", "").strip()
+        # strip client_id prefix if present
+        token_part = current.split(":", 1)[1] if ":" in current else current
+        if token_part and token_part != self._token:
+            log.info("Token changed in env — reinitialising Fyers client ♻️")
+            self._init_fyers()
 
     def get_fo_movers(self, min_pct: float = 1.0) -> list[dict]:
         fo_symbols = [
             "NSE:360ONE-EQ","NSE:ABB-EQ","NSE:ABBOTINDIA-EQ","NSE:ABCAPITAL-EQ",
-            "NSE:ABFRL-EQ","NSE:ABREL-EQ","NSE:ACC-EQ","NSE:ADANIENT-EQ",
+            "NSE:ABFRL-EQ","NSE:ACC-EQ","NSE:ADANIENT-EQ",
             "NSE:ADANIGREEN-EQ","NSE:ADANIPORTS-EQ","NSE:ADANIPOWER-EQ","NSE:ALKEM-EQ",
             "NSE:AMBUJACEM-EQ","NSE:APOLLOHOSP-EQ","NSE:APOLLOTYRE-EQ","NSE:ASHOKLEY-EQ",
             "NSE:ASIANPAINT-EQ","NSE:ASTRAL-EQ","NSE:ATGL-EQ","NSE:AUBANK-EQ",
@@ -53,26 +66,26 @@ class NSEClient:
             "NSE:CANFINHOME-EQ","NSE:CEATLTD-EQ","NSE:CHOLAFIN-EQ","NSE:CIPLA-EQ",
             "NSE:COALINDIA-EQ","NSE:COFORGE-EQ","NSE:COLPAL-EQ","NSE:CONCOR-EQ",
             "NSE:CROMPTON-EQ","NSE:CUMMINSIND-EQ","NSE:CYIENT-EQ","NSE:DABUR-EQ",
-            "NSE:DALBHARAT-EQ","NSE:DBREALTY-EQ","NSE:DEEPAKNTR-EQ","NSE:DELHIVERY-EQ",
+            "NSE:DALBHARAT-EQ","NSE:DEEPAKNTR-EQ","NSE:DELHIVERY-EQ",
             "NSE:DEVYANI-EQ","NSE:DIXON-EQ","NSE:DLF-EQ","NSE:DMART-EQ",
             "NSE:DRREDDY-EQ","NSE:EICHERMOT-EQ","NSE:ELGIEQUIP-EQ","NSE:EMAMILTD-EQ",
             "NSE:ESCORTS-EQ","NSE:EXIDEIND-EQ","NSE:FEDERALBNK-EQ","NSE:FLUOROCHEM-EQ",
-            "NSE:FORTIS-EQ","NSE:GAIL-EQ","NSE:GLAND-EQ","NSE:GLENMARK-EQ",
+            "NSE:FORTIS-EQ","NSE:GAIL-EQ","NSE:GLENMARK-EQ",
             "NSE:GMRAIRPORT-EQ","NSE:GMRINFRA-EQ","NSE:GNFC-EQ","NSE:GODREJCP-EQ",
-            "NSE:GODREJPROP-EQ","NSE:GRANULES-EQ","NSE:GRASIM-EQ","NSE:GSPL-EQ",
+            "NSE:GODREJPROP-EQ","NSE:GRANULES-EQ","NSE:GRASIM-EQ",
             "NSE:HAL-EQ","NSE:HAVELLS-EQ","NSE:HCLTECH-EQ","NSE:HDFCAMC-EQ",
-            "NSE:HDFCBANK-EQ","NSE:HDFCLIFE-EQ","NSE:HEROMOTOCO-EQ","NSE:HFCL-EQ",
+            "NSE:HDFCBANK-EQ","NSE:HDFCLIFE-EQ","NSE:HEROMOTOCO-EQ",
             "NSE:HINDALCO-EQ","NSE:HINDCOPPER-EQ","NSE:HINDPETRO-EQ","NSE:HINDUNILVR-EQ",
             "NSE:HUDCO-EQ","NSE:ICICIBANK-EQ","NSE:ICICIGI-EQ","NSE:ICICIPRULI-EQ",
             "NSE:IDFCFIRSTB-EQ","NSE:IEX-EQ","NSE:IGL-EQ","NSE:INDHOTEL-EQ",
             "NSE:INDIAMART-EQ","NSE:INDIGO-EQ","NSE:INDUSINDBK-EQ","NSE:INDUSTOWER-EQ",
-            "NSE:INFY-EQ","NSE:IOC-EQ","NSE:IPCALAB-EQ","NSE:IRCTC-EQ",
+            "NSE:INFY-EQ","NSE:IOC-EQ","NSE:IRCTC-EQ",
             "NSE:IRFC-EQ","NSE:ITC-EQ","NSE:JINDALSTEL-EQ","NSE:JKCEMENT-EQ",
             "NSE:JSL-EQ","NSE:JSWENERGY-EQ","NSE:JSWSTEEL-EQ","NSE:JUBLFOOD-EQ",
             "NSE:KALYANKJIL-EQ","NSE:KEI-EQ","NSE:KOTAKBANK-EQ","NSE:KPITTECH-EQ",
-            "NSE:LALPATHLAB-EQ","NSE:LATENTVIEW-EQ","NSE:LAURUSLABS-EQ","NSE:LICHSGFIN-EQ",
+            "NSE:LATENTVIEW-EQ","NSE:LAURUSLABS-EQ","NSE:LICHSGFIN-EQ",
             "NSE:LT-EQ","NSE:LTIM-EQ","NSE:LTTS-EQ","NSE:LUPIN-EQ",
-            "NSE:M&M-EQ","NSE:M&MFIN-EQ","NSE:MANAPPURAM-EQ","NSE:MARICO-EQ",
+            "NSE:M&M-EQ","NSE:MANAPPURAM-EQ","NSE:MARICO-EQ",
             "NSE:MARUTI-EQ","NSE:MAXHEALTH-EQ","NSE:MCX-EQ","NSE:MFSL-EQ",
             "NSE:MGL-EQ","NSE:MOTHERSON-EQ","NSE:MPHASIS-EQ","NSE:MRF-EQ",
             "NSE:MUTHOOTFIN-EQ","NSE:NATCOPHARM-EQ","NSE:NAUKRI-EQ","NSE:NAVINFLUOR-EQ",
@@ -89,7 +102,7 @@ class NSEClient:
             "NSE:TATACHEM-EQ","NSE:TATACOMM-EQ","NSE:TATACONSUM-EQ","NSE:TATAELXSI-EQ",
             "NSE:TATAMOTORS-EQ","NSE:TATAPOWER-EQ","NSE:TATASTEEL-EQ","NSE:TCS-EQ",
             "NSE:TECHM-EQ","NSE:TIINDIA-EQ","NSE:TITAN-EQ","NSE:TORNTPHARM-EQ",
-            "NSE:TORNTPOWER-EQ","NSE:TRENT-EQ","NSE:TVSMOTOR-EQ","NSE:UBL-EQ",
+            "NSE:TRENT-EQ","NSE:TVSMOTOR-EQ","NSE:UBL-EQ",
             "NSE:ULTRACEMCO-EQ","NSE:UNIONBANK-EQ","NSE:UPL-EQ","NSE:VEDL-EQ",
             "NSE:VOLTAS-EQ","NSE:WIPRO-EQ","NSE:ZOMATO-EQ","NSE:ZYDUSLIFE-EQ",
         ]

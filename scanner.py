@@ -149,8 +149,14 @@ class Scanner:
         movers = movers[:config.MAX_STOCKS_PER_RUN]
         log.info(f"Movers >{config.MIN_MOVE_PCT}%: {len(movers)}")
 
-        tasks = [self._process_stock(s) for s in movers]
-        await asyncio.gather(*tasks, return_exceptions=True)
+        # process in batches of 5 to respect Fyers rate limit
+        batch_size = 5
+        for i in range(0, len(movers), batch_size):
+            batch = movers[i:i + batch_size]
+            tasks = [self._process_stock(s) for s in batch]
+            await asyncio.gather(*tasks, return_exceptions=True)
+            if i + batch_size < len(movers):
+                await asyncio.sleep(1)
 
     async def _process_stock(self, stock: dict):
         sym = stock["symbol"]

@@ -31,30 +31,40 @@ def market_open() -> bool:
     end   = dtime(config.MARKET_CLOSE_H, config.MARKET_CLOSE_M)
     return start <= now <= end
 
-# ── OI change cache (1-min window) ────────────
+# ── OI snapshot cache (5-min window) ──────────
+# stores raw CE OI + PE OI every cycle so we can compute change ourselves
+# Fyers oiChange field is unreliable (stays 0 early session)
 OI_CHG_WINDOW_MINS = 5
-_oi_chg_history: dict[str, list[tuple[datetime, float, float]]] = {}
+_oi_snapshot: dict[str, list[tuple[datetime, float, float]]] = {}
 
-def _record_oi_chg(sym: str, ce_oi_chg: float, pe_oi_chg: float):
+def _record_oi(sym: str, ce_oi: float, pe_oi: float):
+    """Record raw OI snapshot every scan cycle."""
     now = datetime.now()
-    if sym not in _oi_chg_history:
-        _oi_chg_history[sym] = []
-    _oi_chg_history[sym].append((now, ce_oi_chg, pe_oi_chg))
+    if sym not in _oi_snapshot:
+        _oi_snapshot[sym] = []
+    _oi_snapshot[sym].append((now, ce_oi, pe_oi))
+    # keep 15 min of history
     cutoff = now - timedelta(minutes=15)
-    _oi_chg_history[sym] = [e for e in _oi_chg_history[sym] if e[0] >= cutoff]
+    _oi_snapshot[sym] = [e for e in _oi_snapshot[sym] if e[0] >= cutoff]
 
-def _get_ref_oi_chg(sym: str) -> tuple[float, float] | None:
-    """Return (ce_oi_chg, pe_oi_chg) from ~1 min ago. None if not enough history."""
-    history = _oi_chg_history.get(sym, [])
+def _get_oi_change_vs_5m(sym: str, ce_oi_now: float, pe_oi_now: float) -> tuple[float, float, bool]:
+    """
+    Compare current OI vs snapshot from ~5 mins ago.
+    Returns (ce_oi_chg, pe_oi_chg, has_history)
+    ce_oi_chg = ce_oi_now - ce_oi_5m_ago  (positive = OI increased)
+    has_history = False if less than 5 mins of data
+    """
+    history = _oi_snapshot.get(sym, [])
     if not history:
-        return None
+        return 0.0, 0.0, False
     now    = datetime.now()
     cutoff = now - timedelta(minutes=OI_CHG_WINDOW_MINS)
     past   = [e for e in history if e[0] <= cutoff]
     if not past:
-        return None
+        return 0.0, 0.0, False
     ref = min(past, key=lambda e: abs((e[0] - cutoff).total_seconds()))
-    return ref[1], ref[2]
+    _, ref_ce, ref_pe = ref
+    return (ce_oi_now - ref_ce), (pe_oi_now - ref_pe), True
 
 # ── active signals tracker ─────────────────────
 # { symbol: { "signal_type", "strike", "option_type", "entry_premium",
@@ -62,29 +72,23 @@ def _get_ref_oi_chg(sym: str) -> tuple[float, float] | None:
 _active_signals: dict[str, dict] = {}
 
 # ── signal classification ──────────────────────
-def _classify_signal(pct: float, ce_oi_chg_now: float, pe_oi_chg_now: float,
-                     ref: tuple[float, float] | None) -> tuple[str, str] | tuple[None, None]:
+def _classify_signal(pct: float, ce_oi_chg: float, pe_oi_chg: float) -> tuple[str, str] | tuple[None, None]:
     """
     Returns (signal_type, option_side) or (None, None)
+    ce_oi_chg / pe_oi_chg = OI now minus OI 5 mins ago (computed, not from Fyers field)
 
     signal_type: LONG_BUILDUP | SHORT_COVERING | SHORT_BUILDUP | LONG_UNWINDING
     option_side: CALL | PUT
     """
-    if ref is None:
-        # no 1-min history yet — use raw OI chg sign
-        ref_ce, ref_pe = 0.0, 0.0
-    else:
-        ref_ce, ref_pe = ref
+    ce_chg_rising = ce_oi_chg > 0   # CE OI increased in last 5 mins
+    pe_chg_rising = pe_oi_chg > 0   # PE OI increased in last 5 mins
 
-    ce_chg_rising = ce_oi_chg_now > ref_ce
-    pe_chg_rising = pe_oi_chg_now > ref_pe
-
-    if pct >= config.MIN_MOVE_PCT:          # price UP
+    if pct >= config.MIN_MOVE_PCT:       # price UP
         if ce_chg_rising:
             return "LONG_BUILDUP", "CALL"
         else:
             return "SHORT_COVERING", "CALL"
-    elif pct <= -config.MIN_MOVE_PCT:       # price DOWN
+    elif pct <= -config.MIN_MOVE_PCT:    # price DOWN
         if pe_chg_rising:
             return "SHORT_BUILDUP", "PUT"
         else:
@@ -177,30 +181,38 @@ class Scanner:
             if not result or (not result["ce_top"] and not result["pe_top"]):
                 return
 
-            ce_oi     = sum(o["oi"]     for o in result["ce_top"])
-            pe_oi     = sum(o["oi"]     for o in result["pe_top"])
-            ce_oi_chg = sum(o["oi_chg"] for o in result["ce_top"])
-            pe_oi_chg = sum(o["oi_chg"] for o in result["pe_top"])
+            ce_oi     = sum(o["oi"] for o in result["ce_top"])
+            pe_oi     = sum(o["oi"] for o in result["pe_top"])
             total_oi  = ce_oi + pe_oi
 
-            # record for 1-min comparison
-            _record_oi_chg(sym, ce_oi_chg, pe_oi_chg)
-            ref = _get_ref_oi_chg(sym)
+            # compute OI change vs 5 mins ago from our own snapshot cache
+            # (Fyers oiChange field is 0 early session — unreliable)
+            ce_oi_chg, pe_oi_chg, has_history = _get_oi_change_vs_5m(sym, ce_oi, pe_oi)
+
+            # record current OI snapshot for future comparisons
+            _record_oi(sym, ce_oi, pe_oi)
+
+            # ── need at least 5 mins of history to compute OI change ──
+            if not has_history:
+                log.info(f"[{sym}] skipped — building OI history (<5 min)")
+                return
 
             # ── classify signal ──────────────────────────────
-            signal_type, option_side = _classify_signal(pct, ce_oi_chg, pe_oi_chg, ref)
+            signal_type, option_side = _classify_signal(pct, ce_oi_chg, pe_oi_chg)
             if not signal_type:
                 return
 
-            # ── OI dominance filter ──────────────────────────
-            if option_side == "CALL" and ce_oi <= pe_oi:
-                log.info(f"[{sym}] {signal_type} skipped — CE OI ({ce_oi:,}) <= PE OI ({pe_oi:,})")
+            # ── OI dominance: use OI change momentum not absolute OI ──
+            # for CALL: CE OI change > PE OI change (CE momentum stronger)
+            # for PUT:  PE OI change > CE OI change (PE momentum stronger)
+            if option_side == "CALL" and ce_oi_chg <= pe_oi_chg:
+                log.info(f"[{sym}] {signal_type} skipped — CE OI chg ({ce_oi_chg:,.0f}) <= PE OI chg ({pe_oi_chg:,.0f})")
                 return
-            if option_side == "PUT" and pe_oi <= ce_oi:
-                log.info(f"[{sym}] {signal_type} skipped — PE OI ({pe_oi:,}) <= CE OI ({ce_oi:,})")
+            if option_side == "PUT" and pe_oi_chg <= ce_oi_chg:
+                log.info(f"[{sym}] {signal_type} skipped — PE OI chg ({pe_oi_chg:,.0f}) <= CE OI chg ({ce_oi_chg:,.0f})")
                 return
 
-            # ── OI change >= 15% of total OI (mandatory) ─────
+            # ── OI change >= 15% of respective OI (mandatory) ────────
             if option_side == "CALL":
                 oi_chg_pct = (ce_oi_chg / ce_oi * 100) if ce_oi > 0 else 0
                 if oi_chg_pct < 15:
@@ -217,6 +229,7 @@ class Scanner:
                 ce_oi_chg, pe_oi_chg, total_oi,
                 stock.get("volume", 0), stock.get("prev_volume", 0)
             )
+            log.info(f"[{sym}] {signal_type} | CE OI chg={ce_oi_chg:,.0f} PE OI chg={pe_oi_chg:,.0f} | oi_chg_pct={oi_chg_pct:.1f}%")
 
             # ── pick best option for tracking ────────────────
             top_opts = result["ce_top"] if option_side == "CALL" else result["pe_top"]

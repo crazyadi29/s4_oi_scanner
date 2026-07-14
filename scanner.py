@@ -32,7 +32,7 @@ def market_open() -> bool:
     return start <= now <= end
 
 # ── OI change cache (1-min window) ────────────
-OI_CHG_WINDOW_MINS = 1
+OI_CHG_WINDOW_MINS = 5
 _oi_chg_history: dict[str, list[tuple[datetime, float, float]]] = {}
 
 def _record_oi_chg(sym: str, ce_oi_chg: float, pe_oi_chg: float):
@@ -40,7 +40,7 @@ def _record_oi_chg(sym: str, ce_oi_chg: float, pe_oi_chg: float):
     if sym not in _oi_chg_history:
         _oi_chg_history[sym] = []
     _oi_chg_history[sym].append((now, ce_oi_chg, pe_oi_chg))
-    cutoff = now - timedelta(minutes=5)
+    cutoff = now - timedelta(minutes=15)
     _oi_chg_history[sym] = [e for e in _oi_chg_history[sym] if e[0] >= cutoff]
 
 def _get_ref_oi_chg(sym: str) -> tuple[float, float] | None:

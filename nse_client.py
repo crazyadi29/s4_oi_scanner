@@ -105,6 +105,10 @@ class NSEClient:
             "NSE:TRENT-EQ","NSE:TVSMOTOR-EQ","NSE:UBL-EQ",
             "NSE:ULTRACEMCO-EQ","NSE:UNIONBANK-EQ","NSE:UPL-EQ","NSE:VEDL-EQ",
             "NSE:VOLTAS-EQ","NSE:WIPRO-EQ","NSE:ZOMATO-EQ","NSE:ZYDUSLIFE-EQ",
+            "NSE:PATANJALI-EQ","NSE:MANKIND-EQ","NSE:JSWINFRA-EQ","NSE:RVNL-EQ",
+            "NSE:IREDA-EQ","NSE:CAMS-EQ","NSE:ANGELONE-EQ","NSE:CDSL-EQ",
+            "NSE:MAZDOCK-EQ","NSE:COCHINSHIP-EQ","NSE:BDL-EQ","NSE:GRSE-EQ",
+            "NSE:TITAGARH-EQ","NSE:RITES-EQ","NSE:IRCON-EQ","NSE:NBCC-EQ",
         ]
         movers = []
         batch_size = 50

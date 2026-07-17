@@ -215,13 +215,13 @@ class Scanner:
             # ── OI change >= 15% of respective OI (mandatory) ────────
             if option_side == "CALL":
                 oi_chg_pct = (ce_oi_chg / ce_oi * 100) if ce_oi > 0 else 0
-                if oi_chg_pct < 15:
-                    log.info(f"[{sym}] {signal_type} skipped — CE OI chg {oi_chg_pct:.1f}% < 15%")
+                if oi_chg_pct < 10:
+                    log.info(f"[{sym}] {signal_type} skipped — CE OI chg {oi_chg_pct:.1f}% < 10%")
                     return
             else:
                 oi_chg_pct = (pe_oi_chg / pe_oi * 100) if pe_oi > 0 else 0
-                if oi_chg_pct < 15:
-                    log.info(f"[{sym}] {signal_type} skipped — PE OI chg {oi_chg_pct:.1f}% < 15%")
+                if oi_chg_pct < 10:
+                    log.info(f"[{sym}] {signal_type} skipped — PE OI chg {oi_chg_pct:.1f}% < 10%")
                     return
 
             # ── institutional conviction ─────────────────────

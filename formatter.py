@@ -151,3 +151,74 @@ def console_print(stock: dict, result: dict):
     if result.get("institutional"):
         print(f"  🏦 INSTITUTIONAL CONVICTION")
     print(sep + "\n")
+
+
+# ── EOD summary ────────────────────────────────
+def build_eod_summary(results: list[dict]) -> str:
+    from datetime import date
+
+    today     = date.today().strftime("%d-%b-%Y")
+    medals    = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟",
+                 "1️⃣1️⃣","1️⃣2️⃣","1️⃣3️⃣","1️⃣4️⃣","1️⃣5️⃣"]
+
+    # sort by return % descending
+    def _ret(r):
+        e = r["entry_prem"]
+        return (r["exit_prem"] - e) / e * 100 if e else 0
+
+    results = sorted(results, key=_ret, reverse=True)
+
+    lines = [
+        f"🚨🔥 *S4 BOT – TRADE SUMMARY {today}* 🔥🚨",
+        f"📅 Live Market Performance | Intraday Only",
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        f"📊 *OPTION CALLS*",
+        f"",
+    ]
+
+    winners  = 0
+    losers   = 0
+    total_ret = 0.0
+
+    for i, r in enumerate(results):
+        entry    = r["entry_prem"]
+        exit_    = r["exit_prem"]
+        ret_pct  = (exit_ - entry) / entry * 100 if entry else 0
+        total_ret += ret_pct
+        medal    = medals[i] if i < len(medals) else f"{i+1}."
+
+        if ret_pct >= 100:
+            tag = "💥"
+        elif ret_pct >= 40:
+            tag = "🚀"
+        elif ret_pct >= 15:
+            tag = "⚡️"
+        elif ret_pct >= 0:
+            tag = "✅"
+        else:
+            tag = "🔴"
+
+        arrow = "📈" if ret_pct >= 0 else "📉"
+
+        if ret_pct >= 0:
+            winners += 1
+        else:
+            losers += 1
+
+        lines.append(
+            f"{medal} *{r['symbol']}* {r['strike']:,.0f} {r['option_side']} "
+            f"🎯 `{entry:.2f}` ➝ `{exit_:.2f}` {arrow} "
+            f"Return: `{ret_pct:+.1f}%` {tag}"
+        )
+
+    avg_ret = total_ret / len(results) if results else 0
+
+    lines += [
+        f"",
+        f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+        f"📈 Winners: *{winners}*  |  📉 Losers: *{losers}*",
+        f"⚡️ Avg Return: `{avg_ret:+.1f}%`",
+        f"🕒 Session closed: `3:30 PM IST`",
+    ]
+
+    return "\n".join(lines)

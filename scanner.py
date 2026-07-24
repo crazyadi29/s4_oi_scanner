@@ -134,9 +134,23 @@ class Scanner:
         log.info("Scanner stopped 🛑")
 
     async def _loop(self):
+        _eod_sent = False
         while self._running:
             try:
-                if market_open():
+                now_ist = datetime.now(IST)
+                is_open = market_open()
+
+                # send EOD summary at 3:30 PM once
+                eod_time = now_ist.time() >= dtime(15, 30) and now_ist.time() <= dtime(15, 45)
+                if eod_time and not _eod_sent and _active_signals:
+                    await self._send_eod_summary()
+                    _eod_sent = True
+
+                # reset flag at midnight for next day
+                if now_ist.time() < dtime(9, 0):
+                    _eod_sent = False
+
+                if is_open:
                     await self._scan_cycle()
                     await asyncio.sleep(config.SCAN_INTERVAL_SEC)
                 else:
@@ -270,6 +284,55 @@ class Scanner:
 
         except Exception as e:
             log.error(f"[{sym}] error: {e}")
+
+    async def _send_eod_summary(self):
+        """Fetch final premiums for all active signals and send EOD summary."""
+        log.info("Sending EOD summary ...")
+        results = []
+
+        for sym, sig in _active_signals.items():
+            try:
+                chain = await asyncio.to_thread(self.nse.get_option_chain, sym)
+                if not chain:
+                    # use last known premium
+                    results.append({
+                        "symbol":      sym,
+                        "strike":      sig["strike"],
+                        "option_side": sig["option_side"],
+                        "entry_prem":  sig["entry_premium"],
+                        "exit_prem":   sig["last_premium"],
+                        "signal_type": sig["signal_type"],
+                    })
+                    continue
+
+                result = await asyncio.to_thread(
+                    self.nse.find_top_otm, chain,
+                    sig["entry_ltp"], config.TOP_N_OTM
+                )
+                side_key  = "ce_top" if sig["option_side"] == "CALL" else "pe_top"
+                opts      = result.get(side_key, []) if result else []
+                match     = next((o for o in opts if o["strike"] == sig["strike"]), None)
+                exit_prem = match["premium"] if match else sig["last_premium"]
+
+                results.append({
+                    "symbol":      sym,
+                    "strike":      sig["strike"],
+                    "option_side": sig["option_side"],
+                    "entry_prem":  sig["entry_premium"],
+                    "exit_prem":   exit_prem,
+                    "signal_type": sig["signal_type"],
+                })
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                log.error(f"[{sym}] EOD fetch error: {e}")
+
+        if not results:
+            return
+
+        from formatter import build_eod_summary
+        msg = build_eod_summary(results)
+        await self.send(msg, {})
+        log.info("EOD summary sent ✅")
 
     async def _send_tracking(self, sym: str, stock: dict):
         """Send price update for already-alerted stock."""

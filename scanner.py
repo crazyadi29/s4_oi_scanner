@@ -238,6 +238,18 @@ class Scanner:
                     log.info(f"[{sym}] {signal_type} skipped — PE OI chg {oi_chg_pct:.1f}% < 10%")
                     return
 
+            # ── 2x OI change filter (computed, not Fyers field) ──
+            # CALL: ce_oi_chg must be >= 2x pe_oi_chg
+            # PUT:  pe_oi_chg must be >= 2x ce_oi_chg
+            if option_side == "CALL":
+                if ce_oi_chg < 2 * pe_oi_chg:
+                    log.info(f"[{sym}] {signal_type} skipped — CE OI chg ({ce_oi_chg:,.0f}) < 2x PE OI chg ({pe_oi_chg:,.0f})")
+                    return
+            else:
+                if pe_oi_chg < 2 * ce_oi_chg:
+                    log.info(f"[{sym}] {signal_type} skipped — PE OI chg ({pe_oi_chg:,.0f}) < 2x CE OI chg ({ce_oi_chg:,.0f})")
+                    return
+
             # ── institutional conviction ─────────────────────
             institutional = _is_institutional(
                 ce_oi_chg, pe_oi_chg, total_oi,

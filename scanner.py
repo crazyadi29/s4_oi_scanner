@@ -31,10 +31,10 @@ def market_open() -> bool:
     end   = dtime(config.MARKET_CLOSE_H, config.MARKET_CLOSE_M)
     return start <= now <= end
 
-# ── OI snapshot cache (5-min window) ──────────
+# ── OI snapshot cache (15-min window) ──────────
 # stores raw CE OI + PE OI every cycle so we can compute change ourselves
 # Fyers oiChange field is unreliable (stays 0 early session)
-OI_CHG_WINDOW_MINS = 5
+OI_CHG_WINDOW_MINS = 15
 _oi_snapshot: dict[str, list[tuple[datetime, float, float]]] = {}
 
 def _record_oi(sym: str, ce_oi: float, pe_oi: float):
@@ -44,7 +44,7 @@ def _record_oi(sym: str, ce_oi: float, pe_oi: float):
         _oi_snapshot[sym] = []
     _oi_snapshot[sym].append((now, ce_oi, pe_oi))
     # keep 15 min of history
-    cutoff = now - timedelta(minutes=15)
+    cutoff = now - timedelta(minutes=35)
     _oi_snapshot[sym] = [e for e in _oi_snapshot[sym] if e[0] >= cutoff]
 
 def _get_oi_change_vs_5m(sym: str, ce_oi_now: float, pe_oi_now: float) -> tuple[float, float, bool]:

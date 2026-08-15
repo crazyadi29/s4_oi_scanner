@@ -8,7 +8,42 @@ from datetime import datetime, timedelta, time as dtime
 
 import pytz
 import config
+import csv
+import os
 from nse_client import NSEClient
+
+# ── OI data logger ─────────────────────────────
+OI_LOG_DIR = os.getenv("OI_LOG_DIR", "/app/oi_logs")
+
+def _ensure_log_dir():
+    os.makedirs(OI_LOG_DIR, exist_ok=True)
+
+def _log_oi_snapshot(sym: str, ltp: float, pct: float,
+                     ce_oi: float, pe_oi: float,
+                     ce_oi_chg: float, pe_oi_chg: float,
+                     signal: str = ""):
+    """Append one OI snapshot row to daily CSV."""
+    try:
+        _ensure_log_dir()
+        today    = datetime.now().strftime("%Y-%m-%d")
+        filepath = os.path.join(OI_LOG_DIR, f"oi_{today}.csv")
+        is_new   = not os.path.exists(filepath)
+        with open(filepath, "a", newline="") as f:
+            writer = csv.writer(f)
+            if is_new:
+                writer.writerow([
+                    "timestamp","symbol","ltp","pct_move",
+                    "ce_oi","pe_oi","ce_oi_chg","pe_oi_chg","signal"
+                ])
+            writer.writerow([
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                sym, ltp, round(pct, 2),
+                int(ce_oi), int(pe_oi),
+                int(ce_oi_chg), int(pe_oi_chg),
+                signal,
+            ])
+    except Exception as e:
+        log.error(f"OI log error [{sym}]: {e}")
 from formatter  import build_alert, build_tracking_update, console_print
 
 log = logging.getLogger("scanner")
@@ -31,7 +66,7 @@ def market_open() -> bool:
     end   = dtime(config.MARKET_CLOSE_H, config.MARKET_CLOSE_M)
     return start <= now <= end
 
-# ── OI snapshot cache (15-min window) ──────────
+# ── OI snapshot cache (5-min window) ──────────
 # stores raw CE OI + PE OI every cycle so we can compute change ourselves
 # Fyers oiChange field is unreliable (stays 0 early session)
 OI_CHG_WINDOW_MINS = 15
@@ -113,6 +148,41 @@ class Scanner:
         self._running = False
         self._task    = None
 
+        # start WebSocket with all equity symbols
+        eq_symbols = [
+            f"NSE:{sym}-EQ" for sym in [
+            "360ONE","ABB","ABBOTINDIA","ABCAPITAL","ABFRL","ACC","ADANIENT","ADANIGREEN",
+            "ADANIPORTS","ADANIPOWER","ALKEM","AMBUJACEM","APOLLOHOSP","APOLLOTYRE",
+            "ASHOKLEY","ASIANPAINT","ASTRAL","ATGL","AUBANK","AUROPHARMA","AXISBANK",
+            "BAJAJ-AUTO","BAJAJFINSV","BAJFINANCE","BALKRISIND","BANDHANBNK","BANKBARODA",
+            "BATAINDIA","BEL","BERGEPAINT","BHARTIARTL","BHEL","BIKAJI","BIOCON","BPCL",
+            "BRITANNIA","BSE","CANBK","CANFINHOME","CHOLAFIN","CIPLA","COALINDIA","COFORGE",
+            "COLPAL","CONCOR","CROMPTON","CUMMINSIND","DABUR","DALBHARAT","DEEPAKNTR",
+            "DELHIVERY","DIXON","DLF","DMART","DRREDDY","EICHERMOT","EMAMILTD","ESCORTS",
+            "EXIDEIND","FEDERALBNK","FLUOROCHEM","FORTIS","GAIL","GMRAIRPORT","GMRINFRA",
+            "GNFC","GODREJCP","GODREJPROP","GRANULES","GRASIM","HAL","HAVELLS","HCLTECH",
+            "HDFCAMC","HDFCBANK","HDFCLIFE","HEROMOTOCO","HINDALCO","HINDCOPPER","HINDPETRO",
+            "HINDUNILVR","HUDCO","ICICIBANK","ICICIGI","ICICIPRULI","IDFCFIRSTB","IEX","IGL",
+            "INDHOTEL","INDIGO","INDUSINDBK","INDUSTOWER","INFY","IOC","IRCTC","IRFC","ITC",
+            "JINDALSTEL","JKCEMENT","JSWENERGY","JSWSTEEL","JSWINFRA","JUBLFOOD","KALYANKJIL",
+            "KEI","KOTAKBANK","KPITTECH","LAURUSLABS","LICHSGFIN","LT","LTIM","LTTS","LUPIN",
+            "M&M","MANKIND","MANAPPURAM","MARICO","MARUTI","MAXHEALTH","MCX","MFSL","MGL",
+            "MOTHERSON","MPHASIS","MRF","MUTHOOTFIN","NAUKRI","NAVINFLUOR","NESTLEIND",
+            "NETWORK18","NHPC","NMDC","NTPC","NYKAA","OBEROIRLTY","OFSS","ONGC","PAGEIND",
+            "PATANJALI","PAYTM","PERSISTENT","PETRONET","PFC","PIDILITIND","PIIND","PNB",
+            "POLICYBZR","POLYCAB","POONAWALLA","POWERGRID","PRESTIGE","PVRINOX","RBLBANK",
+            "RECLTD","RELIANCE","RVNL","SAIL","SBICARD","SBILIFE","SBIN","SHREECEM",
+            "SHRIRAMFIN","SIEMENS","SJVN","SOLARINDS","SRF","SUNPHARMA","SUNTV","SUPREMEIND",
+            "SYNGENE","TATACHEM","TATACOMM","TATACONSUM","TATAELXSI","TATAMOTORS","TATAPOWER",
+            "TATASTEEL","TCS","TECHM","TIINDIA","TITAN","TORNTPHARM","TRENT","TVSMOTOR",
+            "UBL","ULTRACEMCO","UNIONBANK","UPL","VEDL","VOLTAS","WIPRO","ZOMATO","ZYDUSLIFE",
+            "ANGELONE","CAMS","CDSL","IREDA","IRCON","NBCC","MAZDOCK","COCHINSHIP","BDL",
+            "GRSE","TITAGARH","RITES",
+            ]
+        ]
+        self.nse.start_websocket(eq_symbols)
+        log.info(f"WebSocket started for {len(eq_symbols)} symbols")
+
     def is_running(self) -> bool:
         return self._running
 
@@ -167,8 +237,8 @@ class Scanner:
         movers = movers[:config.MAX_STOCKS_PER_RUN]
         log.info(f"Movers >{config.MIN_MOVE_PCT}%: {len(movers)}")
 
-        # process in batches of 10 to respect Fyers rate limit
-        batch_size = 10
+        # process in batches of 5 to respect Fyers rate limit
+        batch_size = 5
         for i in range(0, len(movers), batch_size):
             batch = movers[i:i + batch_size]
             tasks = [self._process_stock(s) for s in batch]
@@ -205,6 +275,9 @@ class Scanner:
 
             # record current OI snapshot for future comparisons
             _record_oi(sym, ce_oi, pe_oi)
+
+            # ── log raw OI data to CSV for future backtesting ─────────
+            _log_oi_snapshot(sym, ltp, pct, ce_oi, pe_oi, ce_oi_chg, pe_oi_chg)
 
             # ── need at least 5 mins of history to compute OI change ──
             if not has_history:
@@ -279,6 +352,7 @@ class Scanner:
                 "institutional":  institutional,
                 "ce_oi_chg":      ce_oi_chg,
                 "pe_oi_chg":      pe_oi_chg,
+                "ws_symbol":      best_opt.get("symbol", ""),  # for live WS tracking
             }
 
             result["signal_type"]   = signal_type
@@ -293,6 +367,8 @@ class Scanner:
             console_print(stock, result)
             await self.send(msg, stock)
             log.info(f"[{sym}] ✅ {signal_type} ({option_side}) fired | institutional={institutional}")
+            # log signal row separately so backtest can identify entry points
+            _log_oi_snapshot(sym, ltp, pct, ce_oi, pe_oi, ce_oi_chg, pe_oi_chg, signal=f"{signal_type}_{option_side}")
 
         except Exception as e:
             log.error(f"[{sym}] error: {e}")
@@ -347,25 +423,34 @@ class Scanner:
         log.info("EOD summary sent ✅")
 
     async def _send_tracking(self, sym: str, stock: dict):
-        """Send price update for already-alerted stock."""
+        """Send price update for already-alerted stock using live WS data."""
         sig = _active_signals[sym]
         try:
-            # fetch latest premium for the option
-            chain = await asyncio.to_thread(self.nse.get_option_chain, sym)
-            if not chain:
-                return
-            result = await asyncio.to_thread(self.nse.find_top_otm, chain, stock["ltp"], config.TOP_N_OTM)
-            if not result:
-                return
+            # try live WebSocket data first
+            ws_sym    = sig.get("ws_symbol", "")
+            curr_prem = None
 
-            side_key  = "ce_top" if sig["option_side"] == "CALL" else "pe_top"
-            opts      = result.get(side_key, [])
-            # find matching strike
-            match = next((o for o in opts if o["strike"] == sig["strike"]), None)
-            if not match:
-                return
+            if ws_sym:
+                live = self.nse.get_live_oi(ws_sym)
+                if live:
+                    curr_prem = live.get("ltp")
 
-            curr_prem  = match["premium"]
+            # fallback to REST if WS data not available
+            if not curr_prem:
+                chain = await asyncio.to_thread(self.nse.get_option_chain, sym)
+                if not chain:
+                    return
+                result = await asyncio.to_thread(self.nse.find_top_otm, chain, stock["ltp"], config.TOP_N_OTM)
+                if not result:
+                    return
+                side_key = "ce_top" if sig["option_side"] == "CALL" else "pe_top"
+                opts     = result.get(side_key, [])
+                match    = next((o for o in opts if o["strike"] == sig["strike"]), None)
+                if not match:
+                    return
+                curr_prem = match["premium"]
+
+            curr_prem  = curr_prem
             entry_prem = sig["entry_premium"]
             last_prem  = sig["last_premium"]
             lot_size   = sig["lot_size"]

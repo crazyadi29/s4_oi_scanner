@@ -330,8 +330,8 @@ class NSEClient:
 
             atm_strike = min(all_strikes, key=lambda s: abs(s - ltp))
 
-            ce_otm = [o for o in ce_rows if o.get("strike_price", 0) > atm_strike and o.get("oi", 0) >= 200]
-            pe_otm = [o for o in pe_rows if o.get("strike_price", 0) < atm_strike and o.get("oi", 0) >= 200]
+            ce_otm = [o for o in ce_rows if o.get("strike_price", 0) > atm_strike and o.get("oi", 0) >= 50]
+            pe_otm = [o for o in pe_rows if o.get("strike_price", 0) < atm_strike and o.get("oi", 0) >= 50]
 
             ce_top = sorted(ce_otm, key=lambda x: x.get("oi", 0), reverse=True)[:top_n]
             pe_top = sorted(pe_otm, key=lambda x: x.get("oi", 0), reverse=True)[:top_n]

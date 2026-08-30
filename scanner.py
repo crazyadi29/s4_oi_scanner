@@ -328,7 +328,16 @@ class Scanner:
                 ce_oi_chg, pe_oi_chg, total_oi,
                 stock.get("volume", 0), stock.get("prev_volume", 0)
             )
-            log.info(f"[{sym}] {signal_type} | CE OI chg={ce_oi_chg:,.0f} PE OI chg={pe_oi_chg:,.0f} | oi_chg_pct={oi_chg_pct:.1f}%")
+
+            # ── high conviction: opposite-side OI change >= 100 (3 digits) ──
+            # CALL: PE OI change >= 100 confirms bullish conviction
+            # PUT:  CE OI change >= 100 confirms bearish conviction
+            if option_side == "CALL":
+                high_conviction = pe_oi_chg >= 100
+            else:
+                high_conviction = ce_oi_chg >= 100
+
+            log.info(f"[{sym}] {signal_type} | CE OI chg={ce_oi_chg:,.0f} PE OI chg={pe_oi_chg:,.0f} | oi_chg_pct={oi_chg_pct:.1f}% | high_conviction={high_conviction}")
 
             # ── pick best option for tracking ────────────────
             top_opts = result["ce_top"] if option_side == "CALL" else result["pe_top"]
@@ -350,18 +359,20 @@ class Scanner:
                 "entry_ltp":      ltp,
                 "lot_size":       lot_size,
                 "institutional":  institutional,
+                "high_conviction": high_conviction,
                 "ce_oi_chg":      ce_oi_chg,
                 "pe_oi_chg":      pe_oi_chg,
                 "ws_symbol":      best_opt.get("symbol", ""),  # for live WS tracking
             }
 
-            result["signal_type"]   = signal_type
-            result["option_side"]   = option_side
-            result["institutional"] = institutional
-            result["ce_oi_chg"]     = ce_oi_chg
-            result["pe_oi_chg"]     = pe_oi_chg
-            result["ce_oi"]         = ce_oi
-            result["pe_oi"]         = pe_oi
+            result["signal_type"]     = signal_type
+            result["option_side"]     = option_side
+            result["institutional"]   = institutional
+            result["high_conviction"] = high_conviction
+            result["ce_oi_chg"]       = ce_oi_chg
+            result["pe_oi_chg"]       = pe_oi_chg
+            result["ce_oi"]           = ce_oi
+            result["pe_oi"]           = pe_oi
 
             msg = build_alert(stock, result)
             console_print(stock, result)

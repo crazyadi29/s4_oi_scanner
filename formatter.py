@@ -61,6 +61,7 @@ def build_alert(stock: dict, result: dict) -> str:
     signal_type  = result.get("signal_type", "LONG_BUILDUP")
     option_side  = result.get("option_side", "CALL")
     institutional= result.get("institutional", False)
+    high_conviction = result.get("high_conviction", False)
     ce_oi_chg    = result.get("ce_oi_chg", 0)
     pe_oi_chg    = result.get("pe_oi_chg", 0)
     ce_oi        = result.get("ce_oi", 0)
@@ -88,6 +89,9 @@ def build_alert(stock: dict, result: dict) -> str:
 
     if institutional:
         lines.insert(3, f"🏦 *INSTITUTIONAL CONVICTION* — OI chg ≥15% + Vol 1.9x")
+
+    if high_conviction:
+        lines.insert(3, f"🔥 *HIGH CONVICTION* — opposite side OI chg ≥100")
 
     # OI summary
     lines.append(f"📊 *OI Summary*")

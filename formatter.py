@@ -41,11 +41,19 @@ _SIGNAL_META = {
 }
 
 
-def _opt_row(rank: int, opt: dict) -> str:
+def _opt_row(rank: int, opt: dict, side: str) -> str:
     medal = ["1️⃣", "2️⃣", "3️⃣"][rank] if rank < 3 else f"{rank+1}."
+    oi_chg = opt["oi_chg"]
+
+    # writing detection: OI increasing = writing (fresh position), decreasing = unwinding
+    if side == "CE":
+        tag = "✍️ Call Writing" if oi_chg > 0 else ("🔓 Call Unwinding" if oi_chg < 0 else "➖ Flat")
+    else:
+        tag = "✍️ Put Writing" if oi_chg > 0 else ("🔓 Put Unwinding" if oi_chg < 0 else "➖ Flat")
+
     return (
         f"  {medal} *{opt['strike']:,.0f}*  |  "
-        f"OI: `{_lacs(opt['oi'])}`  ΔOI: `{_lacs_chg(opt['oi_chg'])}`\n"
+        f"OI: `{_lacs(opt['oi'])}`  ΔOI: `{_lacs_chg(oi_chg)}`  _{tag}_\n"
         f"       Prem: `₹{opt['premium']:.2f}`  "
         f"Δ: `{_greek(opt['delta'])}`  "
         f"IV: `{_iv(opt['iv'])}`"
@@ -99,21 +107,21 @@ def build_alert(stock: dict, result: dict) -> str:
     lines.append(f"  PE OI: `{_lacs(pe_oi)}`  ΔPE: `{_lacs_chg(pe_oi_chg)}`")
     lines.append(f"")
 
-    # top options block
-    if option_side == "CALL":
-        ce_top = result.get("ce_top", [])
-        if ce_top:
-            lines.append(f"🔼 *TOP OTM CALLS (CE)*")
-            for i, o in enumerate(ce_top):
-                lines.append(_opt_row(i, o))
-            lines.append("")
-    else:
-        pe_top = result.get("pe_top", [])
-        if pe_top:
-            lines.append(f"🔽 *TOP OTM PUTS (PE)*")
-            for i, o in enumerate(pe_top):
-                lines.append(_opt_row(i, o))
-            lines.append("")
+    # top options block — ALWAYS show top 3 CE and top 3 PE with writing/unwinding tags
+    ce_top = result.get("ce_top", [])
+    pe_top = result.get("pe_top", [])
+
+    if ce_top:
+        lines.append(f"🔼 *TOP 3 OTM CALLS (CE)*")
+        for i, o in enumerate(ce_top):
+            lines.append(_opt_row(i, o, "CE"))
+        lines.append("")
+
+    if pe_top:
+        lines.append(f"🔽 *TOP 3 OTM PUTS (PE)*")
+        for i, o in enumerate(pe_top):
+            lines.append(_opt_row(i, o, "PE"))
+        lines.append("")
 
     lines.append(f"🔗 [NSE Chain]({nse_url}) | [Chart]({chart_url})")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")

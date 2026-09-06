@@ -25,11 +25,11 @@ FYERS_REDIRECT_URI = os.getenv("FYERS_REDIRECT_URI", "https://trade.fyers.in/api
 FYERS_ACCESS_TOKEN = os.getenv("FYERS_ACCESS_TOKEN", "")
 
 # ── Strategy settings ──────────────────────────
-MIN_MOVE_PCT       = 1
-SCAN_INTERVAL_SEC  = 3
+MIN_MOVE_PCT       = 1.5
+SCAN_INTERVAL_SEC  = 8
 MAX_STOCKS_PER_RUN = 100
 COOLDOWN_MINUTES   = 30
-TOP_N_OTM          = 2
+TOP_N_OTM          = 3
 
 # ── Market hours (IST, 24h) ────────────────────
 MARKET_OPEN_H  = 9

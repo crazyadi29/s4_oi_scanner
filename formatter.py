@@ -99,7 +99,7 @@ def build_alert(stock: dict, result: dict) -> str:
         lines.insert(3, f"🏦 *INSTITUTIONAL CONVICTION* — OI chg ≥15% + Vol 1.9x")
 
     if high_conviction:
-        lines.insert(3, f"🔥 *HIGH CONVICTION* — opposite side OI chg ≥100")
+        lines.insert(3, f"🔥 *HIGH CONVICTION* — opposite side OI chg ≥50")
 
     # OI summary
     lines.append(f"📊 *OI Summary*")

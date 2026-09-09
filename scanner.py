@@ -69,7 +69,7 @@ def market_open() -> bool:
 # ── OI snapshot cache (5-min window) ──────────
 # stores raw CE OI + PE OI every cycle so we can compute change ourselves
 # Fyers oiChange field is unreliable (stays 0 early session)
-OI_CHG_WINDOW_MINS = 15
+OI_CHG_WINDOW_MINS = 5
 _oi_snapshot: dict[str, list[tuple[datetime, float, float]]] = {}
 
 def _record_oi(sym: str, ce_oi: float, pe_oi: float):
@@ -333,9 +333,9 @@ class Scanner:
             # CALL: PE OI change >= 100 confirms bullish conviction
             # PUT:  CE OI change >= 100 confirms bearish conviction
             if option_side == "CALL":
-                high_conviction = pe_oi_chg >= 100
+                high_conviction = pe_oi_chg >= 50
             else:
-                high_conviction = ce_oi_chg >= 100
+                high_conviction = ce_oi_chg >= 50
 
             log.info(f"[{sym}] {signal_type} | CE OI chg={ce_oi_chg:,.0f} PE OI chg={pe_oi_chg:,.0f} | oi_chg_pct={oi_chg_pct:.1f}% | high_conviction={high_conviction}")
 

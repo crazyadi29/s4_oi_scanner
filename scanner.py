@@ -461,18 +461,18 @@ class Scanner:
                     return
                 curr_prem = match["premium"]
 
-           curr_prem  = match["premium"]
-entry_prem = sig["entry_premium"]
-lot_size   = sig["lot_size"]
-pnl        = (curr_prem - entry_prem) * lot_size
+                curr_prem  = match["premium"]
+                entry_prem = sig["entry_premium"]
+                lot_size   = sig["lot_size"]
+                pnl        = (curr_prem - entry_prem) * lot_size
 
-if entry_prem <= 0:
-    return
-pct_from_entry = (curr_prem - entry_prem) / entry_prem * 100
-if pct_from_entry < 50:
-    return
+                if entry_prem <= 0:
+                    return
+                pct_from_entry = (curr_prem - entry_prem) / entry_prem * 100
+                if pct_from_entry < 50:
+                    return
 
-sig["last_premium"] = curr_prem
+                sig["last_premium"] = curr_prem
             msg = build_tracking_update(
                 sym        = sym,
                 strike     = sig["strike"],

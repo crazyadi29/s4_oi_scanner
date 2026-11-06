@@ -99,7 +99,14 @@ def build_alert(stock: dict, result: dict) -> str:
         lines.insert(3, f"🏦 *INSTITUTIONAL CONVICTION* — OI chg ≥15% + Vol 1.9x")
 
     if high_conviction:
-        lines.insert(3, f"🔥 *HIGH CONVICTION* — opposite side OI chg ≥50")
+        lines.insert(3, f"🔥 *HIGH CONVICTION* — opposite side OI chg ≥100")
+
+    g = result.get("gamma")
+    if g:
+        fl = g["flags"]
+        ck = lambda b: "✅" if b else "❌"
+        lines.insert(3, f"⚡💥 *GAMMA BLAST {g['pct']}% confirmed* ({g['side']} {g['strike']:,.0f}, OI {g['ratio']:.1f}x)\n"
+                        f"   Near level {ck(fl['level'])} Buildup {ck(fl['buildup'])} Vol {ck(fl['volume'])} OI↓ {ck(fl['oi_falling'])}")
 
     # OI summary
     lines.append(f"📊 *OI Summary*")

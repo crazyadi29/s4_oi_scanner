@@ -69,7 +69,7 @@ def market_open() -> bool:
 # ── OI snapshot cache (5-min window) ──────────
 # stores raw CE OI + PE OI every cycle so we can compute change ourselves
 # Fyers oiChange field is unreliable (stays 0 early session)
-OI_CHG_WINDOW_MINS = 5
+OI_CHG_WINDOW_MINS = 15
 _oi_snapshot: dict[str, list[tuple[datetime, float, float]]] = {}
 
 def _record_oi(sym: str, ce_oi: float, pe_oi: float):
@@ -333,9 +333,9 @@ class Scanner:
             # CALL: PE OI change >= 100 confirms bullish conviction
             # PUT:  CE OI change >= 100 confirms bearish conviction
             if option_side == "CALL":
-                high_conviction = pe_oi_chg >= 50
+                high_conviction = pe_oi_chg >= 100
             else:
-                high_conviction = ce_oi_chg >= 50
+                high_conviction = ce_oi_chg >= 100
 
             log.info(f"[{sym}] {signal_type} | CE OI chg={ce_oi_chg:,.0f} PE OI chg={pe_oi_chg:,.0f} | oi_chg_pct={oi_chg_pct:.1f}% | high_conviction={high_conviction}")
 
@@ -373,6 +373,15 @@ class Scanner:
             result["pe_oi_chg"]       = pe_oi_chg
             result["ce_oi"]           = ce_oi
             result["pe_oi"]           = pe_oi
+
+            # ── GAMMA BLAST tag (15m) — tag only, never blocks ──
+            try:
+                from gamma import evaluate as _gamma_eval
+                result["gamma"] = await asyncio.to_thread(
+                    _gamma_eval, self.nse.fyers, sym, ltp, chain, result["atm_strike"])
+            except Exception as ge:
+                log.warning(f"[{sym}] gamma skipped: {ge}")
+                result["gamma"] = None
 
             msg = build_alert(stock, result)
             console_print(stock, result)
@@ -461,18 +470,21 @@ class Scanner:
                     return
                 curr_prem = match["premium"]
 
-                curr_prem  = match["premium"]
-                entry_prem = sig["entry_premium"]
-                lot_size   = sig["lot_size"]
-                pnl        = (curr_prem - entry_prem) * lot_size
+            curr_prem  = curr_prem
+            entry_prem = sig["entry_premium"]
+            last_prem  = sig["last_premium"]
+            lot_size   = sig["lot_size"]
+            pnl        = (curr_prem - entry_prem) * lot_size
 
-                if entry_prem <= 0:
-                    return
-                pct_from_entry = (curr_prem - entry_prem) / entry_prem * 100
-                if pct_from_entry < 50:
-                    return
+            # only alert when curr premium >= 5% above last sent premium
+            if last_prem <= 0:
+                return
+            pct_above_last = (curr_prem - last_prem) / last_prem * 100
+            if pct_above_last < 10:
+                return
 
-                sig["last_premium"] = curr_prem
+            sig["last_premium"] = curr_prem
+
             msg = build_tracking_update(
                 sym        = sym,
                 strike     = sig["strike"],
